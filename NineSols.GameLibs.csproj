@@ -15,7 +15,9 @@
     <NoDefaultExcludes>true</NoDefaultExcludes>
     <PackageReadmeFile>doc/README.md</PackageReadmeFile>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <PackageProjectUrl>https://github.com/nozwock/NineSols.GameLibs</PackageProjectUrl>
+    <!-- https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-nuget-registry -->
+    <RepositoryUrl>https://github.com/nozwock/NineSols.GameLibs</RepositoryUrl>
+    <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <!--
     NuGet complains about using the /ref/ path in packages because it doesn't work for projects using packages.config.
