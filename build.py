@@ -44,12 +44,13 @@ def disable_github_cli_prompt() -> None:
 
 
 def file_digest(algorithm: str, path: Path, /) -> str:
+    """Output hex string is always in lower case."""
     ONE_MIB = 1 << 20
     hasher = hashlib.new(algorithm)
     with path.open("rb") as f:
         for chunk in iter(lambda: f.read(ONE_MIB), b""):
             hasher.update(chunk)
-    return hasher.hexdigest()
+    return hasher.hexdigest().lower()
 
 
 def get_ninesols_version(game_dir: Path) -> str:
@@ -198,7 +199,7 @@ def publish_all(
             for nupkg in nupkgs
             if not (
                 (digest := digests.get(nupkg.name, None))
-                and file_digest(digest[0], nupkg) == digest[1]
+                and file_digest(digest[0], nupkg) == digest[1].lower()
             )
         ]
 
