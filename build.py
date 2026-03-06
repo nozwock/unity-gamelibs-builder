@@ -7,6 +7,8 @@
 # ]
 # ///
 
+import hashlib
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -15,6 +17,7 @@ from typing import Any, Literal, cast
 import rapidjson
 import typer
 
+PKG_NAME = "NineSols.GameLibs"
 VERSIONS_DIR = Path("versions")
 
 
@@ -32,6 +35,21 @@ cli = typer.Typer(
     rich_markup_mode=None,
     pretty_exceptions_enable=False,
 )
+
+
+def disable_github_cli_prompt() -> None:
+    # https://cli.github.com/manual/gh_help_environment
+    if os.getenv("GH_PROMPT_DISABLED") is None:
+        os.environ["GH_PROMPT_DISABLED"] = "1"
+
+
+def file_digest(algorithm: str, path: Path, /) -> str:
+    ONE_MIB = 1 << 20
+    hasher = hashlib.new(algorithm)
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(ONE_MIB), b""):
+            hasher.update(chunk)
+    return hasher.hexdigest()
 
 
 def get_ninesols_version(game_dir: Path) -> str:
@@ -112,6 +130,92 @@ def build_version(
 def build_all(configuration: CliConfigurationType = CliConfiguration) -> None:
     for version in (it for it in VERSIONS_DIR.iterdir() if it.is_dir()):
         dotnet_build(version.name, configuration)
+
+
+@cli.command()
+def publish_all(
+    source: Literal["Github Release"] = typer.Argument("Github Release"),
+    configuration: CliConfigurationType = typer.Option(
+        "Release", "-c", "--configuration"
+    ),
+) -> None:
+    GITHUB_RELEASE_TAG = "nuget-packages"
+
+    disable_github_cli_prompt()
+
+    build_all(configuration)
+
+    build_dir = Path("bin") / configuration
+    assert build_dir.is_dir()
+
+    release_exists = (
+        subprocess.run(
+            ["gh", "release", "view", GITHUB_RELEASE_TAG],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        ).returncode
+        == 0
+    )
+
+    nupkgs = build_dir.glob("*.nupkg", case_sensitive=False)
+    if not release_exists:
+        nupkgs = list(nupkgs)
+        if not nupkgs:
+            print("No *.nupkg available to upload.")
+            exit(1)
+
+        subprocess.run(
+            [
+                "gh",
+                "release",
+                "create",
+                "--title",
+                "NuGet Packages",
+                "--notes",
+                "",
+                GITHUB_RELEASE_TAG,
+            ]
+            + nupkgs,
+            check=True,
+        )
+    else:
+        assets: list[dict[str, Any]] = json_loads(
+            subprocess.run(
+                ["gh", "release", "view", "--json", "assets", GITHUB_RELEASE_TAG],
+                check=True,
+                text=True,
+                encoding="utf-8",
+                stdout=subprocess.PIPE,
+            ).stdout
+        )["assets"]
+        digests: dict[str, list[str]] = {
+            asset["name"]: cast(str, asset["digest"]).split(":", 1) for asset in assets
+        }
+
+        # Filter out already uploaded nupkgs
+        nupkgs = [
+            nupkg
+            for nupkg in nupkgs
+            if not (
+                (digest := digests.get(nupkg.name, None))
+                and file_digest(digest[0], nupkg) == digest[1]
+            )
+        ]
+
+        if not nupkgs:
+            print("Nothing new to upload.")
+        else:
+            subprocess.run(
+                [
+                    "gh",
+                    "release",
+                    "upload",
+                    "--clobber",
+                    GITHUB_RELEASE_TAG,
+                ]
+                + nupkgs,
+                check=True,
+            )
 
 
 def main() -> None:
