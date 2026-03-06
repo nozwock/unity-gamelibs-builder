@@ -241,7 +241,7 @@ def publish_github_releases(nupkgs: Iterable[Path]) -> None:
 
 @cli.command()
 def publish_all(
-    source: Literal["Github Release", "Github NuGet"] = typer.Argument("Github NuGet"),
+    source: Literal["github-release", "github-nuget"] = typer.Argument("github-nuget"),
     clean: bool = typer.Option(True, "--clean/--no-clean", help="Clean *.nupkg before publish"),
     force: bool = typer.Option(False, "-f", "--force", help="Disable sanity checks"),
 ) -> None:
@@ -307,9 +307,9 @@ def publish_all(
 
     nupkgs = build_dir.glob("*.nupkg", case_sensitive=False)
 
-    if source == "Github NuGet":
+    if source == "github-nuget":
         publish_github_nuget_packages(nupkgs)
-    elif source == "Github Release":
+    elif source == "github-release":
         publish_github_releases(nupkgs)
 
 
