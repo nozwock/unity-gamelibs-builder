@@ -111,6 +111,9 @@ def build_game(
     game_dirs: list[Path] = typer.Argument(..., exists=True, file_okay=False),
     configuration: CliConfigurationType = CliConfiguration,
 ) -> None:
+    """
+    Build .nupkg by game paths.
+    """
     for version in add_version(game_dirs):
         dotnet_build(version, configuration)
 
@@ -120,6 +123,9 @@ def build_version(
     versions: list[str] = typer.Argument(...),
     configuration: CliConfigurationType = CliConfiguration,
 ) -> None:
+    """
+    Build .nupkg by VERSIONS in versions/
+    """
     for version in versions:
         version_dir = VERSIONS_DIR / version
         if not version_dir.is_dir():
@@ -131,6 +137,9 @@ def build_version(
 
 @cli.command()
 def build_all(configuration: CliConfigurationType = CliConfiguration) -> None:
+    """
+    Build .nupkg for all VERSIONS in versions/
+    """
     for version in (it for it in VERSIONS_DIR.iterdir() if it.is_dir()):
         dotnet_build(version.name, configuration)
 
@@ -242,13 +251,15 @@ def publish_github_releases(nupkgs: Iterable[Path]) -> None:
 @cli.command()
 def publish_all(
     source: Literal["github-release", "github-nuget"] = typer.Argument("github-nuget"),
-    clean: bool = typer.Option(True, "--clean/--no-clean", help="Clean *.nupkg before publish"),
+    clean: bool = typer.Option(
+        True, "--clean/--no-clean", help="Clean *.nupkg before publish"
+    ),
     force: bool = typer.Option(False, "-f", "--force", help="Disable sanity checks"),
 ) -> None:
     """
-    Github NuGet requires GITHUB_TOKEN/GH_TOKEN with write:packages.
+    GitHub NuGet requires a GITHUB_TOKEN/GH_TOKEN with write:packages scope.
 
-    Could specify env vars in an .env file.
+    You can specify environment variables in an .env file.
     """
     if not force:
         if (
