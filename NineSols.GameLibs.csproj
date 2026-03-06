@@ -1,0 +1,82 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Fail the build if GameVersion is not set, as early as possible -->
+  <Target Name="EnsureGameVersionSet" BeforeTargets="ResolveReferences">
+      <Error Condition="'$(VersionsDir)' == '' OR '$(GameVersion)' == ''" Text="VersionsDir and GameVersion property must be set (e.g. via -p:VersionsDir=versions/ -p:GameVersion=VERSION)" />
+  </Target>
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <PackageVersion>1.0.0-ninesols.$(GameVersion)</PackageVersion>
+    <Authors>nozwock</Authors>
+    <Description>The game libraries used for modding Nine Sols</Description>
+    <PackageTags>ninesols modding bepinex5</PackageTags>
+    <IncludeBuildOutput>False</IncludeBuildOutput>
+    <NoDefaultExcludes>true</NoDefaultExcludes>
+    <PackageReadmeFile>doc/README.md</PackageReadmeFile>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageProjectUrl>https://github.com/nozwock/NineSols.GameLibs</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <!--
+    NuGet complains about using the /ref/ path in packages because it doesn't work for projects using packages.config.
+    However we do not care about this and would rather declutter our users' build directories at the cost of "forcing"
+    the usage of PackageReference.
+    -->
+    <NoWarn>$(NoWarn);NU5131</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3" ExcludeAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="MonoMod.RuntimeDetour.HookGen" Version="22.7.31.1" PrivateAssets="all" GeneratePathProperty="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="doc/" />
+    <Content Include="NineSols.GameLibs.props" Pack="True" PackagePath="build/" />
+  </ItemGroup>
+
+  <PropertyGroup>
+      <DllDir>$(VersionsDir)/$(GameVersion)/</DllDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <SystemFiles Include="$(DllDir)/System*.dll" />
+    <SystemFiles Include="$(DllDir)/netstandard.dll" />
+    <SystemFiles Include="$(DllDir)/mscorlib.dll" />
+    <!-- 
+    Included in UnityEngine.Modules package from BepInEx BaGet so we don't need to bundle these.
+    Counterintuitively the "exclude" list is stuff which should be included in the bundle (it is excluded from the list of stuff to remove)
+    because they are not covered by UnityEngine.Modules
+    -->
+    <SystemFiles Include="$(DllDir)/UnityEngine*.dll" Exclude="$(DllDir)/UnityEngine.AMDModule.dll;$(DllDir)/UnityEngine.ARModule.dll;$(DllDir)/UnityEngine.NVIDIAModule.dll;$(DllDir)/UnityEngine.UI.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <GameFiles Include="$(DllDir)/*.dll" Exclude="@(SystemFiles)" Publicize="true" Strip="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="**/*" />
+  </ItemGroup>
+
+  <UsingTask TaskName="PublicizeTask" AssemblyFile="$(PkgBepInEx_AssemblyPublicizer_MSBuild)/lib/netstandard2.1/BepInEx.AssemblyPublicizer.MSBuild.dll" />
+  <Target Name="StripAndPublicize" BeforeTargets="FindReferenceAssembliesForReferences" AfterTargets="ResolveReferences">
+    <PropertyGroup>
+      <GeneratedIgnoresAccessChecksToFile>$(IntermediateOutputPath)$(MSBuildProjectName).IgnoresAccessChecksTo.cs</GeneratedIgnoresAccessChecksToFile>
+    </PropertyGroup>
+
+    <PublicizeTask IntermediateOutputPath="$(IntermediateOutputPath)" GeneratedIgnoresAccessChecksToFile="$(GeneratedIgnoresAccessChecksToFile)" ReferencePath="@(GameFiles)" PackageReference="" Publicize="">
+        <Output TaskParameter="PublicizedReferences" ItemName="PublicizedReferences" />
+    </PublicizeTask>
+
+    <ItemGroup>
+      <Content Include="@(PublicizedReferences)" Pack="true" PackagePath="ref/$(TargetFramework)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- 
+  TODO - add a hookgen target later, currently does not work but we don't have a way to distribute the generated hooks to players yet anyway
+  Can refer to https://github.com/BadMagic100/Grime.GameLibs/blob/d1189a5858d77fb5000f7db00be73113ac62798c/Grime.GameLibs.csproj#L59 as a starting point
+  -->
+
+</Project>
