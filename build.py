@@ -279,6 +279,17 @@ def publish_all(
             )
             exit(1)
 
+        if (
+            subprocess.run(
+                ["git", "diff", "--quiet", "HEAD", "origin/main"],
+            ).returncode
+            != 0
+        ):
+            print(
+                "Error: Local main branch is not up to date with origin/main. Please pull first."
+            )
+            exit(1)
+
         if subprocess.run(
             ["git", "status", "--porcelain"],
             check=True,
@@ -288,17 +299,6 @@ def publish_all(
         ).stdout.strip():
             print(
                 "Error: You have uncommitted changes. Please commit or stash them before publishing."
-            )
-            exit(1)
-
-        if (
-            subprocess.run(
-                ["git", "diff", "--quiet", "HEAD", "origin/main"],
-            ).returncode
-            != 0
-        ):
-            print(
-                "Error: Local main branch is not up to date with origin/main. Please pull first."
             )
             exit(1)
 
