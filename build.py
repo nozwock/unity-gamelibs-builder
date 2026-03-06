@@ -118,14 +118,22 @@ def build_game(
         dotnet_build(version, configuration)
 
 
-@cli.command(no_args_is_help=True)
+@cli.command()
 def build_version(
-    versions: list[str] = typer.Argument(...),
+    versions: list[str] = typer.Argument(None),
     configuration: CliConfigurationType = CliConfiguration,
 ) -> None:
     """
     Build .nupkg by VERSIONS in versions/
+
+    Build for all VERSIONS if not specified.
     """
+    if versions is None:
+        for version in (it for it in VERSIONS_DIR.iterdir() if it.is_dir()):
+            dotnet_build(version.name, configuration)
+
+        return
+
     for version in versions:
         version_dir = VERSIONS_DIR / version
         if not version_dir.is_dir():
@@ -133,15 +141,6 @@ def build_version(
             exit(1)
 
         dotnet_build(version, configuration)
-
-
-@cli.command()
-def build_all(configuration: CliConfigurationType = CliConfiguration) -> None:
-    """
-    Build .nupkg for all VERSIONS in versions/
-    """
-    for version in (it for it in VERSIONS_DIR.iterdir() if it.is_dir()):
-        dotnet_build(version.name, configuration)
 
 
 def publish_github_nuget_packages(nupkgs: Iterable[Path]) -> None:
@@ -315,7 +314,7 @@ def publish_all(
         for nupkg in build_dir.glob("*.nupkg", case_sensitive=False):
             nupkg.unlink()
 
-    build_all(configuration)
+    build_version(configuration=configuration)
     assert build_dir.is_dir()
 
     nupkgs = build_dir.glob("*.nupkg", case_sensitive=False)
