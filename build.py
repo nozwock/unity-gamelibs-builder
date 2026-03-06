@@ -145,6 +145,8 @@ def build_all(configuration: CliConfigurationType = CliConfiguration) -> None:
 
 
 def publish_github_nuget_packages(nupkgs: Iterable[Path]) -> None:
+    disable_github_cli_prompt()
+
     repo = subprocess.run(
         ["gh", "repo", "view", "--json", "owner,name"],
         check=True,
@@ -177,6 +179,8 @@ def publish_github_nuget_packages(nupkgs: Iterable[Path]) -> None:
 
 
 def publish_github_releases(nupkgs: Iterable[Path]) -> None:
+    disable_github_cli_prompt()
+
     GITHUB_RELEASE_TAG = "nuget-packages"
 
     release_exists = (
@@ -302,8 +306,6 @@ def publish_all(
         print(
             "On main branch, up to date with origin/main, and no uncommitted changes."
         )
-
-    disable_github_cli_prompt()
 
     configuration = "Release"
 
