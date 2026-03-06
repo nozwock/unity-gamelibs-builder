@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.14"
 # dependencies = [
+#   "python-dotenv ~= 1.2",
 #   "python-rapidjson ~= 1.2",
 #   "typer ~= 0.24",
 # ]
@@ -14,6 +15,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Iterable, Literal, cast
 
+import dotenv
 import rapidjson
 import typer
 
@@ -133,6 +135,38 @@ def build_all(configuration: CliConfigurationType = CliConfiguration) -> None:
         dotnet_build(version.name, configuration)
 
 
+def publish_github_nuget_packages(nupkgs: Iterable[Path]) -> None:
+    repo = subprocess.run(
+        ["gh", "repo", "view", "--json", "owner,name"],
+        check=True,
+        text=True,
+        encoding="utf-8",
+        stdout=subprocess.PIPE,
+    )
+    info = json_loads(repo.stdout)
+
+    owner: str = info["owner"]["login"]
+    registry = f"https://nuget.pkg.github.com/{owner}/index.json"
+    gh_token = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
+    assert gh_token is not None
+
+    for nupkg in nupkgs:
+        subprocess.run(
+            [
+                "dotnet",
+                "nuget",
+                "push",
+                nupkg,
+                "--source",
+                registry,
+                "--api-key",
+                gh_token,
+                "--skip-duplicate",
+            ],
+            check=True,
+        )
+
+
 def publish_github_releases(nupkgs: Iterable[Path]) -> None:
     GITHUB_RELEASE_TAG = "nuget-packages"
 
@@ -207,12 +241,17 @@ def publish_github_releases(nupkgs: Iterable[Path]) -> None:
 
 @cli.command()
 def publish_all(
-    source: Literal["Github Release"] = typer.Argument("Github Release"),
+    source: Literal["Github Release", "Github NuGet"] = typer.Argument("Github NuGet"),
     configuration: CliConfigurationType = typer.Option(
         "Release", "-c", "--configuration"
     ),
     force: bool = typer.Option(False, "-f", "--force", help="Disable sanity checks"),
 ) -> None:
+    """
+    Github NuGet requires GITHUB_TOKEN/GH_TOKEN with write:packages.
+
+    Could specify env vars in an .env file.
+    """
     if not force:
         if (
             branch := subprocess.run(
@@ -264,11 +303,16 @@ def publish_all(
 
     nupkgs = build_dir.glob("*.nupkg", case_sensitive=False)
 
-    publish_github_releases(nupkgs)
+    if source == "Github NuGet":
+        publish_github_nuget_packages(nupkgs)
+    elif source == "Github Release":
+        publish_github_releases(nupkgs)
 
 
 def main() -> None:
+    dotenv.load_dotenv()
     VERSIONS_DIR.mkdir(parents=True, exist_ok=True)
+
     cli()
 
 
