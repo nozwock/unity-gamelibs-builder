@@ -7,7 +7,11 @@ authors = [
     { name = "nozwock" }
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "dotenv>=0.9.9",
+    "python-rapidjson>=1.23",
+    "typer>=0.24.1",
+]
 
 [project.scripts]
 unity-gamelibs = "gamelibs_builder:main"
