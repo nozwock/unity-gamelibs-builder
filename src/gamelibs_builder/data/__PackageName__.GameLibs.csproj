@@ -6,17 +6,18 @@
   </Target>
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
-    <PackageVersion>1.0.0-ninesols.$(GameVersion)</PackageVersion>
-    <Authors>nozwock</Authors>
-    <Description>The game libraries used for modding Nine Sols</Description>
-    <PackageTags>ninesols modding bepinex5</PackageTags>
+    <!-- Default: netstandard2.1 -->
+    <TargetFramework>{{ TargetFramework }}</TargetFramework>
+    <PackageVersion>1.0.0-{{ GameVersionPrefix }}$(GameVersion)</PackageVersion>
+    <Authors>{{ GithubUsername }}</Authors>
+    <Description>The game libraries used for modding {{ GameDisplayName }}</Description>
+    <PackageTags>{{ PackageTags }} modding bepinex5</PackageTags>
     <IncludeBuildOutput>False</IncludeBuildOutput>
     <NoDefaultExcludes>true</NoDefaultExcludes>
     <PackageReadmeFile>doc/README.md</PackageReadmeFile>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <!-- https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-nuget-registry -->
-    <RepositoryUrl>https://github.com/nozwock/NineSols.GameLibs</RepositoryUrl>
+    <RepositoryUrl>https://github.com/{{ GithubUsername }}/{{ PackageName }}.GameLibs</RepositoryUrl>
     <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <!--
@@ -34,7 +35,7 @@
 
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="doc/" />
-    <Content Include="NineSols.GameLibs.props" Pack="True" PackagePath="build/" />
+    <Content Include="{{ PackageName }}.GameLibs.props" Pack="True" PackagePath="build/" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -61,7 +62,7 @@
     <Compile Remove="**/*" />
   </ItemGroup>
 
-  <UsingTask TaskName="PublicizeTask" AssemblyFile="$(PkgBepInEx_AssemblyPublicizer_MSBuild)/lib/netstandard2.1/BepInEx.AssemblyPublicizer.MSBuild.dll" />
+  <UsingTask TaskName="PublicizeTask" AssemblyFile="$(PkgBepInEx_AssemblyPublicizer_MSBuild)/lib/{{ TargetFramework }}/BepInEx.AssemblyPublicizer.MSBuild.dll" />
   <Target Name="StripAndPublicize" BeforeTargets="FindReferenceAssembliesForReferences" AfterTargets="ResolveReferences">
     <PropertyGroup>
       <GeneratedIgnoresAccessChecksToFile>$(IntermediateOutputPath)$(MSBuildProjectName).IgnoresAccessChecksTo.cs</GeneratedIgnoresAccessChecksToFile>
