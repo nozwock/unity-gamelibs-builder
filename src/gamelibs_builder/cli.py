@@ -1,14 +1,3 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.14"
-# dependencies = [
-#   "python-dotenv ~= 1.2",
-#   "python-rapidjson ~= 1.2",
-#   "typer ~= 0.24",
-# ]
-# ///
-
-import hashlib
 import os
 import shutil
 import subprocess
@@ -17,20 +6,16 @@ from sys import exit
 from typing import Any, Iterable, Literal, cast
 
 import dotenv
-import rapidjson
 import typer
 
-PKG_NAME = "NineSols.GameLibs"
+from gamelibs_builder import game_version, utils
+
 VERSIONS_DIR = Path("versions")
 
 
 CliConfigurationType = Literal["Debug", "Release"]
 CliConfiguration = typer.Option("Debug", "-c", "--configuration")
 
-
-json_loads = rapidjson.Decoder(
-    parse_mode=rapidjson.PM_COMMENTS | rapidjson.PM_TRAILING_COMMAS
-)
 
 cli = typer.Typer(
     context_settings=dict(help_option_names=["-h", "--help"]),
@@ -44,26 +29,6 @@ def disable_github_cli_prompt() -> None:
     # https://cli.github.com/manual/gh_help_environment
     if os.getenv("GH_PROMPT_DISABLED") is None:
         os.environ["GH_PROMPT_DISABLED"] = "1"
-
-
-def file_digest(algorithm: str, path: Path, /) -> str:
-    """Output hex string is always in lower case."""
-    ONE_MIB = 1 << 20
-    hasher = hashlib.new(algorithm)
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(ONE_MIB), b""):
-            hasher.update(chunk)
-    return hasher.hexdigest().lower()
-
-
-def get_ninesols_version(game_dir: Path) -> str:
-    # https://github.com/nine-sols-modding/libs-stripped/blob/main/Program.cs
-    cfg_file = (
-        next(game_dir.glob("*_Data")) / "StreamingAssets" / "Config" / "config.json"
-    )
-    with open(cfg_file, encoding="utf-8") as f:
-        cfg = json_loads(f.read())
-    return ".".join(cast(str, cfg["Version"]).split("-")[0].split(".")[1:])
 
 
 def dotnet_build(version: str, configuration: CliConfigurationType) -> None:
@@ -93,7 +58,8 @@ def add_version(
         dll_dir = next(game_dir.glob("*_Data/Managed"), None)
         assert dll_dir is not None and dll_dir.is_dir()
 
-        version = get_ninesols_version(game_dir)
+        version = game_version.get_version(game_dir)
+        assert version is not None, f"Cannot get version for {game_dir=!r}"
 
         target = VERSIONS_DIR / version
         if target.is_dir() and not target.is_symlink():
@@ -154,7 +120,7 @@ def publish_github_nuget_packages(nupkgs: Iterable[Path]) -> None:
         encoding="utf-8",
         stdout=subprocess.PIPE,
     )
-    info = json_loads(repo.stdout)
+    info = utils.json_load(repo.stdout)
 
     owner: str = info["owner"]["login"]
     registry = f"https://nuget.pkg.github.com/{owner}/index.json"
@@ -213,7 +179,7 @@ def publish_github_releases(nupkgs: Iterable[Path]) -> None:
             check=True,
         )
     else:
-        assets: list[dict[str, Any]] = json_loads(
+        assets: list[dict[str, Any]] = utils.json_load(
             subprocess.run(
                 ["gh", "release", "view", "--json", "assets", GITHUB_RELEASE_TAG],
                 check=True,
@@ -232,7 +198,7 @@ def publish_github_releases(nupkgs: Iterable[Path]) -> None:
             for nupkg in nupkgs
             if not (
                 (digest := digests.get(nupkg.name, None))
-                and file_digest(digest[0], nupkg) == digest[1].lower()
+                and utils.file_digest(digest[0], nupkg) == digest[1].lower()
             )
         ]
 
