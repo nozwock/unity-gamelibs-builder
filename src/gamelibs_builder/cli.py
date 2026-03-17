@@ -139,6 +139,27 @@ def build_package(
         print(f'Built NuGet package: "{to}"')
 
 
+@cli.command()
+def publish_package(
+    nupkg: Annotated[Path, typer.Argument(..., exists=True, dir_okay=False)],
+    source: Annotated[
+        Literal["github-release", "github-nuget"], typer.Argument()
+    ] = "github-nuget",
+) -> None:
+    """
+    GitHub NuGet requires a GITHUB_TOKEN/GH_TOKEN with write:packages scope.
+
+    You can specify environment variables in an .env file.
+    """
+
+    dotenv.load_dotenv()
+
+    if source == "github-nuget":
+        publish_github_nuget_packages([nupkg], username=utils.git_username())
+    elif source == "github-release":
+        publish_github_releases([nupkg])
+
+
 @project.command(name="init", no_args_is_help=True)
 def project_init(
     dir: Annotated[Path, typer.Argument(..., file_okay=False)],
@@ -518,6 +539,10 @@ def project_publish_all(
             "On main branch, up to date with origin/main, and no uncommitted changes."
         )
 
+    envfile = cwd / ".env"
+    if envfile.is_file():
+        dotenv.load_dotenv(envfile)
+
     configuration = "Release"
 
     build_dir = cwd / "bin" / configuration
@@ -538,7 +563,6 @@ def project_publish_all(
 
 
 def main() -> None:
-    dotenv.load_dotenv()
     cli()
 
 
