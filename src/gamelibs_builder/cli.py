@@ -16,8 +16,9 @@ from gamelibs_builder import data, game_version, utils
 
 _VERSIONS_STR = "versions"
 
-CliConfigurationType = Literal["Debug", "Release"]
-CliConfiguration = typer.Option("Debug", "-c", "--configuration")
+CliConfigurationType = Annotated[
+    Literal["Debug", "Release"], typer.Option("-c", "--configuration")
+]
 
 
 def new_typer_cli() -> typer.Typer:
@@ -61,6 +62,10 @@ def dotnet_build(
     )
 
 
+# NOTE: Now using `Annotated` because otherwise for `T | None` annotations `typer` gives default value of an internal
+# type `.model.OptionInfo` instead of `None`.
+# Who knows what other issues there could be, so best to stick to Annotation method
+
 cli = new_typer_cli()
 project = new_typer_cli()
 
@@ -73,21 +78,24 @@ cli.add_typer(
 
 @project.command(name="init", no_args_is_help=True)
 def project_init(
-    dir: Path = typer.Argument(..., file_okay=False),
-    package_name: str = typer.Option(
-        ..., "--name", help="Package name (e.g. $name.GameLibs)"
-    ),
-    display_name: str | None = typer.Option(None),
-    framework: str = typer.Option("netstandard2.1", "-f", "--framework"),
-    package_tags: list[str] | None = typer.Option(None, "-t", "--package-tag"),
-    version_prefix: str = typer.Option(
-        None, help="Prefix to game's version in the nupkg's version string."
-    ),
-    github_username: str | None = typer.Option(
-        None, help="Default is git's global user.name"
-    ),
-    license_year: int | None = typer.Option(None),
-    git: bool = typer.Option(True),
+    dir: Annotated[Path, typer.Argument(..., file_okay=False)],
+    package_name: Annotated[
+        str, typer.Option(..., "--name", help="Package name (e.g. $name.GameLibs)")
+    ],
+    display_name: Annotated[str | None, typer.Option()] = None,
+    framework: Annotated[str, typer.Option("-f", "--framework")] = "netstandard2.1",
+    package_tags: Annotated[
+        list[str] | None, typer.Option("-t", "--package-tag")
+    ] = None,
+    version_prefix: Annotated[
+        str | None,
+        typer.Option(help="Prefix to game's version in the nupkg's version string."),
+    ] = None,
+    github_username: Annotated[
+        str | None, typer.Option(help="Default is git's global user.name")
+    ] = None,
+    license_year: Annotated[int | None, typer.Option()] = None,
+    git: Annotated[bool, typer.Option()] = True,
 ) -> None:
     """
     Setup a git project for bundler nuget package.
@@ -147,14 +155,17 @@ def project_init(
 
 @project.command(name="add-version", no_args_is_help=True)
 def project_add_version(
-    game_dir: Path = typer.Argument(..., exists=True, file_okay=False),
-    version: str | None = typer.Option(
-        None, help="Game version. Required if it cannot be inferred."
-    ),
-    dll_dir: Path | None = typer.Option(None, exists=True, file_okay=False),
+    game_dir: Annotated[Path, typer.Argument(..., exists=True, file_okay=False)],
+    version: Annotated[
+        str | None,
+        typer.Option(help="Game version. Required if it cannot be inferred."),
+    ] = None,
+    dll_dir: Annotated[Path | None, typer.Option(exists=True, file_okay=False)] = None,
     # Not passing --cwd in cli's root callback due to needing to add Context param to command functions, which would be
     # annoying since we also directly call these functions
-    cwd: Path | None = typer.Option(None, "-C", "--cwd", exists=True, file_okay=True),
+    cwd: Annotated[
+        Path | None, typer.Option("-C", "--cwd", exists=True, file_okay=True)
+    ] = None,
 ) -> str:
     """
     Symlink game's Managed/ directory to a sub-directory (named with game's version) under versions/
@@ -204,13 +215,16 @@ def project_add_version(
 
 @project.command(name="build-game", no_args_is_help=True)
 def project_build_game(
-    game_dir: Path = typer.Argument(..., exists=True, file_okay=False),
-    version: str | None = typer.Option(
-        None, help="Game version. Required if it cannot be inferred."
-    ),
-    dll_dir: Path | None = typer.Option(None, exists=True, file_okay=False),
-    configuration: CliConfigurationType = CliConfiguration,
-    cwd: Path | None = typer.Option(None, "-C", "--cwd", exists=True, file_okay=True),
+    game_dir: Annotated[Path, typer.Argument(..., exists=True, file_okay=False)],
+    version: Annotated[
+        str | None,
+        typer.Option(help="Game version. Required if it cannot be inferred."),
+    ] = None,
+    dll_dir: Annotated[Path | None, typer.Option(exists=True, file_okay=False)] = None,
+    configuration: CliConfigurationType = "Debug",
+    cwd: Annotated[
+        Path | None, typer.Option("-C", "--cwd", exists=True, file_okay=True)
+    ] = None,
 ) -> None:
     """
     Build .nupkg by game path.
@@ -225,9 +239,11 @@ def project_build_game(
 
 @project.command(name="build-version")
 def project_build_version(
-    versions: list[str] = typer.Argument(None),
-    configuration: CliConfigurationType = CliConfiguration,
-    cwd: Path | None = typer.Option(None, "-C", "--cwd", exists=True, file_okay=True),
+    versions: Annotated[list[str] | None, typer.Argument()] = None,
+    configuration: CliConfigurationType = "Debug",
+    cwd: Annotated[
+        Path | None, typer.Option("-C", "--cwd", exists=True, file_okay=True)
+    ] = None,
 ) -> None:
     """
     Build .nupkg by VERSIONS in versions/
@@ -374,12 +390,18 @@ def publish_github_releases(
 
 @project.command(name="publish-all")
 def project_publish_all(
-    source: Literal["github-release", "github-nuget"] = typer.Argument("github-nuget"),
-    clean: bool = typer.Option(
-        True, "--clean/--no-clean", help="Clean *.nupkg before build."
-    ),
-    force: bool = typer.Option(False, "-f", "--force", help="Disable sanity checks"),
-    cwd: Path | None = typer.Option(None, "-C", "--cwd", exists=True, file_okay=True),
+    source: Annotated[
+        Literal["github-release", "github-nuget"], typer.Argument()
+    ] = "github-nuget",
+    clean: Annotated[
+        bool, typer.Option("--clean/--no-clean", help="Clean *.nupkg before build.")
+    ] = True,
+    force: Annotated[
+        bool, typer.Option("-f", "--force", help="Disable sanity checks")
+    ] = False,
+    cwd: Annotated[
+        Path | None, typer.Option("-C", "--cwd", exists=True, file_okay=True)
+    ] = None,
 ) -> None:
     """
     GitHub NuGet requires a GITHUB_TOKEN/GH_TOKEN with write:packages scope.
