@@ -66,14 +66,16 @@ def project_init(
     package_name: str = typer.Option(
         ..., "--name", help="Package name (e.g. $name.GameLibs)"
     ),
-    display_name: str = typer.Option(None),
+    display_name: str | None = typer.Option(None),
     framework: str = typer.Option("netstandard2.1", "-f", "--framework"),
-    package_tags: list[str] = typer.Option(None, "-t", "--package-tag"),
-    game_version_prefix: str = typer.Option(
+    package_tags: list[str] | None = typer.Option(None, "-t", "--package-tag"),
+    version_prefix: str = typer.Option(
         None, help="Prefix to game's version in the nupkg's version string."
     ),
-    github_username: str = typer.Option(None, help="Default is git's global user.name"),
-    license_year: int = typer.Option(None),
+    github_username: str | None = typer.Option(
+        None, help="Default is git's global user.name"
+    ),
+    license_year: int | None = typer.Option(None),
     git: bool = typer.Option(True),
 ) -> None:
     """
@@ -86,9 +88,9 @@ def project_init(
         package_tags = [package_name.lower()]
     package_tags_string = " ".join(package_tags)
 
-    if not game_version_prefix:
-        game_version_prefix = package_name.lower()
-    game_version_prefix += "."
+    if not version_prefix:
+        version_prefix = package_name.lower()
+    version_prefix += "."
 
     if github_username is None:
         github_username = subprocess.run(
@@ -104,7 +106,7 @@ def project_init(
 
     placeholder_values: dict[str, str] = {
         "GameDisplayName": display_name,
-        "GameVersionPrefix": game_version_prefix,
+        "GameVersionPrefix": version_prefix,
         "GithubUsername": github_username,
         "LicenseYear": str(license_year),
         "PackageName": package_name,
@@ -142,7 +144,7 @@ def project_init(
 def project_add_version(
     game_dir: Path = typer.Argument(..., exists=True, file_okay=False),
     version: str | None = typer.Option(
-        None, help="Required if version cannot be inferred."
+        None, help="Game version. Required if it cannot be inferred."
     ),
     dll_dir: Path | None = typer.Option(None, exists=True, file_okay=False),
 ) -> str:
@@ -196,7 +198,7 @@ def project_add_version(
 def project_build_game(
     game_dir: Path = typer.Argument(..., exists=True, file_okay=False),
     version: str | None = typer.Option(
-        None, help="Required if version cannot be inferred."
+        None, help="Game version. Required if it cannot be inferred."
     ),
     dll_dir: Path | None = typer.Option(None, exists=True, file_okay=False),
     configuration: CliConfigurationType = CliConfiguration,
