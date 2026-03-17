@@ -14,8 +14,7 @@ from more_itertools import first
 
 from gamelibs_builder import data, game_version, utils
 
-VERSIONS_DIR = Path("versions")
-
+_VERSIONS_STR = "versions"
 
 CliConfigurationType = Literal["Debug", "Release"]
 CliConfiguration = typer.Option("Debug", "-c", "--configuration")
@@ -30,23 +29,34 @@ def new_typer_cli() -> typer.Typer:
     )
 
 
+def get_versions_dir(cwd: Path | None = None) -> Path:
+    dir = (Path.cwd() if cwd is None else cwd) / _VERSIONS_STR
+    dir.mkdir(parents=True, exist_ok=True)
+    return dir
+
+
 def disable_github_cli_prompt() -> None:
     # https://cli.github.com/manual/gh_help_environment
     if os.getenv("GH_PROMPT_DISABLED") is None:
         os.environ["GH_PROMPT_DISABLED"] = "1"
 
 
-def dotnet_build(version: str, configuration: CliConfigurationType) -> None:
+def dotnet_build(
+    configuration: CliConfigurationType,
+    version: str,
+    cwd: Path | None = None,
+) -> None:
     subprocess.run(
         [
             "dotnet",
             "build",
             "--configuration",
             configuration,
-            f"-p:VersionsDir={VERSIONS_DIR}",
+            f"-p:VersionsDir={get_versions_dir(cwd)}",
             f"-p:GameVersion={version}",
         ],
         check=True,
+        cwd=cwd,
     )
 
 
@@ -182,7 +192,7 @@ def project_add_version(
             print(f"Error: Cannot infer version for {game_dir=!r}")
             exit(1)
 
-    target = VERSIONS_DIR / version
+    target = get_versions_dir() / version
     if target.is_dir() and not target.is_symlink():
         shutil.rmtree(target)
     elif target.is_symlink():
@@ -207,7 +217,10 @@ def project_build_game(
     Build .nupkg by game path.
     """
 
-    dotnet_build(project_add_version(game_dir, version, dll_dir), configuration)
+    dotnet_build(
+        configuration,
+        project_add_version(game_dir, version, dll_dir),
+    )
 
 
 @project.command(name="build-version")
@@ -220,19 +233,21 @@ def project_build_version(
 
     Build for all VERSIONS if not specified.
     """
+    versions_dir = get_versions_dir()
+
     if versions is None:
-        for version in (it for it in VERSIONS_DIR.iterdir() if it.is_dir()):
+        for version in (it for it in versions_dir.iterdir() if it.is_dir()):
             dotnet_build(version.name, configuration)
 
         return
 
     for version in versions:
-        version_dir = VERSIONS_DIR / version
-        if not version_dir.is_dir():
-            print(f'No such directory: "{VERSIONS_DIR / version}"')
+        version_path = versions_dir / version
+        if not version_path.is_dir():
+            print(f'No such directory: "{version_path}"')
             exit(1)
 
-        dotnet_build(version, configuration)
+        dotnet_build(configuration, version)
 
 
 def publish_github_nuget_packages(nupkgs: Iterable[Path]) -> None:
@@ -419,8 +434,6 @@ def project_publish_all(
 
 def main() -> None:
     dotenv.load_dotenv()
-    VERSIONS_DIR.mkdir(parents=True, exist_ok=True)
-
     cli()
 
 
