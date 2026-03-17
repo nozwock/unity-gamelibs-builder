@@ -3,6 +3,7 @@ import importlib.resources
 import os
 import shutil
 import subprocess
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from sys import exit
@@ -74,6 +75,68 @@ cli.add_typer(
     name="project",
     help="Commands to be used from within a bundler NuGet package project.",
 )
+
+
+@cli.command(no_args_is_help=True)
+def build_package(
+    game_dir: Annotated[Path, typer.Argument(..., exists=True, file_okay=False)],
+    package_name: Annotated[
+        str, typer.Option(..., "--name", help="Package name (e.g. $name.GameLibs)")
+    ],
+    version: Annotated[
+        str | None,
+        typer.Option(help="Game version. Required if it cannot be inferred."),
+    ] = None,
+    output: Annotated[Path | None, typer.Option()] = None,
+    display_name: Annotated[str | None, typer.Option()] = None,
+    framework: Annotated[str, typer.Option("-f", "--framework")] = "netstandard2.1",
+    package_tags: Annotated[
+        list[str] | None, typer.Option("-t", "--package-tag")
+    ] = None,
+    version_prefix: Annotated[
+        str | None,
+        typer.Option(help="Prefix to game's version in the nupkg's version string."),
+    ] = None,
+    github_username: Annotated[
+        str | None, typer.Option(help="Default is git's global user.name")
+    ] = None,
+    license_year: Annotated[int | None, typer.Option()] = None,
+) -> None:
+    """Build GameLibs NuGet package directly with template project placed in a temporary directory."""
+
+    if output is None:
+        Path.cwd()
+
+    with tempfile.TemporaryDirectory() as tempdir:
+        project_dir = Path(tempdir)
+        project_init(
+            dir=project_dir,
+            package_name=package_name,
+            display_name=display_name,
+            framework=framework,
+            package_tags=package_tags,
+            version_prefix=version_prefix,
+            github_username=github_username,
+            license_year=license_year,
+            git=False,
+        )
+
+        configuration = "Release"
+
+        project_build_game(
+            game_dir=game_dir,
+            version=version,
+            configuration=configuration,
+            cwd=project_dir,
+        )
+
+        build_dir = project_dir / "bin" / configuration
+        assert build_dir.is_dir()
+
+        nupkg = first(build_dir.glob("*.nupkg", case_sensitive=False))
+        to = Path.cwd() / nupkg.name if output is None else output
+        nupkg.copy(to)
+        print(f'Built NuGet package: "{to}"')
 
 
 @project.command(name="init", no_args_is_help=True)
