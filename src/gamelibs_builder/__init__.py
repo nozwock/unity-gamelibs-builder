@@ -1,2 +1,5 @@
+from gamelibs_builder import cli
+
+
 def main() -> None:
-    print("Hello from gamelibs-builder!")
+    cli.main()
