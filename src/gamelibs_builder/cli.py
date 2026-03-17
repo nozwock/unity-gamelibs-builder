@@ -335,7 +335,7 @@ def publish_github_releases(nupkgs: Iterable[Path]) -> None:
 def publish_all(
     source: Literal["github-release", "github-nuget"] = typer.Argument("github-nuget"),
     clean: bool = typer.Option(
-        True, "--clean/--no-clean", help="Clean *.nupkg before publish"
+        True, "--clean/--no-clean", help="Clean *.nupkg before build."
     ),
     force: bool = typer.Option(False, "-f", "--force", help="Disable sanity checks"),
 ) -> None:
@@ -344,7 +344,7 @@ def publish_all(
 
     You can specify environment variables in an .env file.
     """
-    if not force:
+    if not force and utils.is_git_repo(Path.cwd()):
         if (
             branch := subprocess.run(
                 ["git", "rev-parse", "--abbrev-ref", "HEAD"],
