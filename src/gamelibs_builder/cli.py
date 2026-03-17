@@ -6,7 +6,7 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 from sys import exit
-from typing import Any, Iterable, Literal, cast
+from typing import Annotated, Any, Iterable, Literal, cast
 
 import dotenv
 import typer
@@ -104,13 +104,7 @@ def project_init(
     version_prefix += "."
 
     if github_username is None:
-        github_username = subprocess.run(
-            ["git", "config", "--global", "user.name"],
-            check=True,
-            text=True,
-            encoding="utf-8",
-            stdout=subprocess.PIPE,
-        ).stdout.strip()
+        github_username = utils.git_username()
 
     if not license_year:
         license_year = datetime.now().year
@@ -158,6 +152,9 @@ def project_add_version(
         None, help="Game version. Required if it cannot be inferred."
     ),
     dll_dir: Path | None = typer.Option(None, exists=True, file_okay=False),
+    # Not passing --cwd in cli's root callback due to needing to add Context param to command functions, which would be
+    # annoying since we also directly call these functions
+    cwd: Path | None = typer.Option(None, "-C", "--cwd", exists=True, file_okay=True),
 ) -> str:
     """
     Symlink game's Managed/ directory to a sub-directory (named with game's version) under versions/
@@ -193,7 +190,7 @@ def project_add_version(
             print(f"Error: Cannot infer version for {game_dir=!r}")
             exit(1)
 
-    target = get_versions_dir() / version
+    target = get_versions_dir(cwd) / version
     if target.is_dir() and not target.is_symlink():
         shutil.rmtree(target)
     elif target.is_symlink():
@@ -213,6 +210,7 @@ def project_build_game(
     ),
     dll_dir: Path | None = typer.Option(None, exists=True, file_okay=False),
     configuration: CliConfigurationType = CliConfiguration,
+    cwd: Path | None = typer.Option(None, "-C", "--cwd", exists=True, file_okay=True),
 ) -> None:
     """
     Build .nupkg by game path.
@@ -220,7 +218,8 @@ def project_build_game(
 
     dotnet_build(
         configuration,
-        version=project_add_version(game_dir, version, dll_dir),
+        version=project_add_version(game_dir, version, dll_dir, cwd=cwd),
+        cwd=cwd,
     )
 
 
@@ -228,18 +227,18 @@ def project_build_game(
 def project_build_version(
     versions: list[str] = typer.Argument(None),
     configuration: CliConfigurationType = CliConfiguration,
+    cwd: Path | None = typer.Option(None, "-C", "--cwd", exists=True, file_okay=True),
 ) -> None:
     """
     Build .nupkg by VERSIONS in versions/
 
     Build for all VERSIONS if not specified.
     """
-    versions_dir = get_versions_dir()
+    versions_dir = get_versions_dir(cwd)
 
     if versions is None:
         for version in (it for it in versions_dir.iterdir() if it.is_dir()):
-            dotnet_build(configuration, version=version.name)
-
+            dotnet_build(configuration, version=version.name, cwd=cwd)
         return
 
     for version in versions:
@@ -248,23 +247,30 @@ def project_build_version(
             print(f'No such directory: "{version_path}"')
             exit(1)
 
-        dotnet_build(configuration, version=version)
+        dotnet_build(configuration, version=version, cwd=cwd)
 
 
-def publish_github_nuget_packages(nupkgs: Iterable[Path]) -> None:
+def publish_github_nuget_packages(
+    nupkgs: Iterable[Path], *, username: str | None = None, cwd: Path | None = None
+) -> None:
     disable_github_cli_prompt()
 
-    repo = subprocess.run(
-        ["gh", "repo", "view", "--json", "owner,name"],
-        check=True,
-        text=True,
-        encoding="utf-8",
-        stdout=subprocess.PIPE,
-    )
-    info = utils.json_load(repo.stdout)
+    if username is None:
+        repo = subprocess.run(
+            ["gh", "repo", "view", "--json", "owner,name"],
+            text=True,
+            encoding="utf-8",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=cwd,
+        )
+        if repo.returncode == 0:
+            info = utils.json_load(repo.stdout)
+            username = info["owner"]["login"]
+        else:
+            username = utils.git_username()
 
-    owner: str = info["owner"]["login"]
-    registry = f"https://nuget.pkg.github.com/{owner}/index.json"
+    registry = f"https://nuget.pkg.github.com/{username}/index.json"
     gh_token = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
     assert gh_token is not None
 
@@ -282,10 +288,13 @@ def publish_github_nuget_packages(nupkgs: Iterable[Path]) -> None:
                 "--skip-duplicate",
             ],
             check=True,
+            cwd=cwd,
         )
 
 
-def publish_github_releases(nupkgs: Iterable[Path]) -> None:
+def publish_github_releases(
+    nupkgs: Iterable[Path], *, repo_dir: Path | None = None
+) -> None:
     disable_github_cli_prompt()
 
     GITHUB_RELEASE_TAG = "nuget-packages"
@@ -295,6 +304,7 @@ def publish_github_releases(nupkgs: Iterable[Path]) -> None:
             ["gh", "release", "view", GITHUB_RELEASE_TAG],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            cwd=repo_dir,
         ).returncode
         == 0
     )
@@ -318,6 +328,7 @@ def publish_github_releases(nupkgs: Iterable[Path]) -> None:
             ]
             + nupkgs,
             check=True,
+            cwd=repo_dir,
         )
     else:
         assets: list[dict[str, Any]] = utils.json_load(
@@ -327,6 +338,7 @@ def publish_github_releases(nupkgs: Iterable[Path]) -> None:
                 text=True,
                 encoding="utf-8",
                 stdout=subprocess.PIPE,
+                cwd=repo_dir,
             ).stdout
         )["assets"]
         digests: dict[str, list[str]] = {
@@ -356,6 +368,7 @@ def publish_github_releases(nupkgs: Iterable[Path]) -> None:
                 ]
                 + nupkgs,
                 check=True,
+                cwd=repo_dir,
             )
 
 
@@ -366,13 +379,16 @@ def project_publish_all(
         True, "--clean/--no-clean", help="Clean *.nupkg before build."
     ),
     force: bool = typer.Option(False, "-f", "--force", help="Disable sanity checks"),
+    cwd: Path | None = typer.Option(None, "-C", "--cwd", exists=True, file_okay=True),
 ) -> None:
     """
     GitHub NuGet requires a GITHUB_TOKEN/GH_TOKEN with write:packages scope.
 
     You can specify environment variables in an .env file.
     """
-    if not force and utils.is_git_repo(Path.cwd()):
+    cwd = Path.cwd() if cwd is None else cwd
+
+    if not force and utils.is_git_repo(cwd):
         if (
             branch := subprocess.run(
                 ["git", "rev-parse", "--abbrev-ref", "HEAD"],
@@ -380,6 +396,7 @@ def project_publish_all(
                 text=True,
                 encoding="utf-8",
                 stdout=subprocess.PIPE,
+                cwd=cwd,
             ).stdout.strip()
         ) != "main":
             print(
@@ -390,6 +407,7 @@ def project_publish_all(
         if (
             subprocess.run(
                 ["git", "diff", "--quiet", "HEAD", "origin/main"],
+                cwd=cwd,
             ).returncode
             != 0
         ):
@@ -404,6 +422,7 @@ def project_publish_all(
             text=True,
             encoding="utf-8",
             stdout=subprocess.PIPE,
+            cwd=cwd,
         ).stdout.strip():
             print(
                 "Error: You have uncommitted changes. Please commit or stash them before publishing."
@@ -416,21 +435,21 @@ def project_publish_all(
 
     configuration = "Release"
 
-    build_dir = Path("bin") / configuration
+    build_dir = cwd / "bin" / configuration
     if clean and build_dir.is_dir():
         print(f'Cleaning *.nupkg from "{build_dir}"')
         for nupkg in build_dir.glob("*.nupkg", case_sensitive=False):
             nupkg.unlink()
 
-    project_build_version(configuration=configuration)
+    project_build_version(configuration=configuration, cwd=cwd)
     assert build_dir.is_dir()
 
     nupkgs = build_dir.glob("*.nupkg", case_sensitive=False)
 
     if source == "github-nuget":
-        publish_github_nuget_packages(nupkgs)
+        publish_github_nuget_packages(nupkgs, cwd=cwd)
     elif source == "github-release":
-        publish_github_releases(nupkgs)
+        publish_github_releases(nupkgs, repo_dir=cwd)
 
 
 def main() -> None:

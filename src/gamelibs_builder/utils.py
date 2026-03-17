@@ -75,6 +75,17 @@ def is_git_repo(dir: Path) -> bool:
     )
 
 
+def git_username() -> str:
+    return subprocess.run(
+        ["git", "config", "--global", "user.name"],
+        check=True,
+        text=True,
+        encoding="utf-8",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    ).stdout.strip()
+
+
 def git_init_repo(dir: Path) -> None:
     subprocess.run(
         ["git", "init"],
