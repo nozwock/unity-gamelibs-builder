@@ -1,6 +1,9 @@
+import importlib
+import importlib.resources
 import os
 import shutil
 import subprocess
+from datetime import datetime
 from pathlib import Path
 from sys import exit
 from typing import Any, Iterable, Literal, cast
@@ -8,7 +11,7 @@ from typing import Any, Iterable, Literal, cast
 import dotenv
 import typer
 
-from gamelibs_builder import game_version, utils
+from gamelibs_builder import data, game_version, utils
 
 VERSIONS_DIR = Path("versions")
 
@@ -43,6 +46,84 @@ def dotnet_build(version: str, configuration: CliConfigurationType) -> None:
         ],
         check=True,
     )
+
+
+@cli.command(no_args_is_help=True)
+def init(
+    dir: Path = typer.Argument(..., file_okay=False),
+    package_name: str = typer.Option(
+        ..., "--name", help="Package name (e.g. $name.GameLibs)"
+    ),
+    display_name: str = typer.Option(None),
+    framework: str = typer.Option("netstandard2.1", "-f", "--framework"),
+    package_tags: list[str] = typer.Option(None, "-t", "--package-tag"),
+    game_version_prefix: str = typer.Option(
+        None, help="Prefix to game's version in the nupkg's version string."
+    ),
+    github_username: str = typer.Option(None, help="Default is git's global user.name"),
+    license_year: int = typer.Option(None),
+    git: bool = typer.Option(True),
+) -> None:
+    """
+    Setup a git project for bundler nuget package.
+    """
+    if not display_name:
+        display_name = package_name
+
+    if not package_tags:
+        package_tags = [package_name.lower()]
+    package_tags_string = " ".join(package_tags)
+
+    if not game_version_prefix:
+        game_version_prefix = package_name.lower()
+    game_version_prefix += "."
+
+    if github_username is None:
+        github_username = subprocess.run(
+            ["git", "config", "--global", "user.name"],
+            check=True,
+            text=True,
+            encoding="utf-8",
+            stdout=subprocess.PIPE,
+        ).stdout.strip()
+
+    if not license_year:
+        license_year = datetime.now().year
+
+    placeholder_values: dict[str, str] = {
+        "GameDisplayName": display_name,
+        "GameVersionPrefix": game_version_prefix,
+        "GithubUsername": github_username,
+        "LicenseYear": str(license_year),
+        "PackageName": package_name,
+        "PackageTags": package_tags_string,
+        "TargetFramework": framework,
+    }
+
+    dir.mkdir(parents=True, exist_ok=True)
+
+    # Copying template files
+    for filepath in (
+        utils.convert_traversable_to_path(it)
+        for it in importlib.resources.files(data).iterdir()
+        if it.is_file() and it.name not in ("__init__.py",)
+    ):
+        out_filepath = dir / utils.replace_filename_placeholders(
+            filepath, placeholder_values
+        )
+        filepath.copy(out_filepath)
+        out_filepath.write_text(
+            utils.replace_text_placeholders(
+                out_filepath.read_text(encoding="utf-8"), placeholder_values
+            ),
+            encoding="utf-8",
+        )
+
+    if git and not utils.is_git_repo_root(dir):
+        utils.git_init_repo(dir)
+        utils.git_commit_all(dir, "Initial commit")
+
+    print(f'Initialized {package_name}.GameLibs: "{dir.absolute()}"')
 
 
 @cli.command(no_args_is_help=True)
