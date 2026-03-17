@@ -21,12 +21,13 @@ CliConfigurationType = Literal["Debug", "Release"]
 CliConfiguration = typer.Option("Debug", "-c", "--configuration")
 
 
-cli = typer.Typer(
-    context_settings=dict(help_option_names=["-h", "--help"]),
-    no_args_is_help=True,
-    rich_markup_mode=None,
-    pretty_exceptions_enable=False,
-)
+def new_typer_cli() -> typer.Typer:
+    return typer.Typer(
+        context_settings=dict(help_option_names=["-h", "--help"]),
+        no_args_is_help=True,
+        rich_markup_mode=None,
+        pretty_exceptions_enable=False,
+    )
 
 
 def disable_github_cli_prompt() -> None:
@@ -49,8 +50,18 @@ def dotnet_build(version: str, configuration: CliConfigurationType) -> None:
     )
 
 
-@cli.command(no_args_is_help=True)
-def init(
+cli = new_typer_cli()
+project = new_typer_cli()
+
+cli.add_typer(
+    project,
+    name="project",
+    help="Commands to be used from within a bundler NuGet package project.",
+)
+
+
+@project.command(name="init", no_args_is_help=True)
+def project_init(
     dir: Path = typer.Argument(..., file_okay=False),
     package_name: str = typer.Option(
         ..., "--name", help="Package name (e.g. $name.GameLibs)"
@@ -127,8 +138,8 @@ def init(
     print(f'Initialized {package_name}.GameLibs: "{dir.absolute()}"')
 
 
-@cli.command(no_args_is_help=True)
-def add_version(
+@project.command(name="add-version", no_args_is_help=True)
+def project_add_version(
     game_dir: Path = typer.Argument(..., exists=True, file_okay=False),
     version: str | None = typer.Option(
         None, help="Required if version cannot be inferred."
@@ -181,8 +192,8 @@ def add_version(
     return version
 
 
-@cli.command(no_args_is_help=True)
-def build_game(
+@project.command(name="build-game", no_args_is_help=True)
+def project_build_game(
     game_dir: Path = typer.Argument(..., exists=True, file_okay=False),
     version: str | None = typer.Option(
         None, help="Required if version cannot be inferred."
@@ -194,11 +205,11 @@ def build_game(
     Build .nupkg by game path.
     """
 
-    dotnet_build(add_version(game_dir, version, dll_dir), configuration)
+    dotnet_build(project_add_version(game_dir, version, dll_dir), configuration)
 
 
-@cli.command()
-def build_version(
+@project.command(name="build-version")
+def project_build_version(
     versions: list[str] = typer.Argument(None),
     configuration: CliConfigurationType = CliConfiguration,
 ) -> None:
@@ -330,8 +341,8 @@ def publish_github_releases(nupkgs: Iterable[Path]) -> None:
             )
 
 
-@cli.command()
-def publish_all(
+@project.command(name="publish-all")
+def project_publish_all(
     source: Literal["github-release", "github-nuget"] = typer.Argument("github-nuget"),
     clean: bool = typer.Option(
         True, "--clean/--no-clean", help="Clean *.nupkg before build."
@@ -393,7 +404,7 @@ def publish_all(
         for nupkg in build_dir.glob("*.nupkg", case_sensitive=False):
             nupkg.unlink()
 
-    build_version(configuration=configuration)
+    project_build_version(configuration=configuration)
     assert build_dir.is_dir()
 
     nupkgs = build_dir.glob("*.nupkg", case_sensitive=False)
