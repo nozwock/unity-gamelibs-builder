@@ -10,6 +10,7 @@ from typing import Any, Iterable, Literal, cast
 
 import dotenv
 import typer
+from more_itertools import first
 
 from gamelibs_builder import data, game_version, utils
 
@@ -128,42 +129,73 @@ def init(
 
 @cli.command(no_args_is_help=True)
 def add_version(
-    game_dirs: list[Path] = typer.Argument(..., exists=True, file_okay=False)
-) -> list[str]:
+    game_dir: Path = typer.Argument(..., exists=True, file_okay=False),
+    version: str | None = typer.Option(
+        None, help="Required if version cannot be inferred."
+    ),
+    dll_dir: Path | None = typer.Option(None, exists=True, file_okay=False),
+) -> str:
     """
     Symlink game's Managed/ directory to a sub-directory (named with game's version) under versions/
+
+    For Il2Cpp games, directory to managed dlls provided by MelonLoader or BepInEx is used instead.
     """
-    versions = []
 
-    for game_dir in game_dirs:
-        dll_dir = next(game_dir.glob("*_Data/Managed"), None)
+    def joindir(path: Path, *other: str | Path) -> Path | None:
+        path = path.joinpath(*other)
+        return path if path.is_dir() else None
+
+    if dll_dir is None:
+        dll_dir = first(
+            filter(
+                lambda it: it is not None,
+                (
+                    # Il2Cpp manged introp dlls
+                    joindir(game_dir, "BepInEx", "interop"),
+                    # https://melonwiki.xyz/#/modders/quickstart?id=assembly-references
+                    joindir(game_dir, "MelonLoader", "Il2CppAssemblies"),
+                    joindir(game_dir, "MelonLoader", "Managed"),
+                    # Game's original managed dlls
+                    first(game_dir.glob("*_Data/Managed")),
+                ),
+            )
+        )
         assert dll_dir is not None and dll_dir.is_dir()
+        print(f'Manged DLLs directory to be symlinked: "{dll_dir}"')
 
+    if version is None:
         version = game_version.get_version(game_dir)
-        assert version is not None, f"Cannot get version for {game_dir=!r}"
+        if version is None:
+            print(f"Error: Cannot infer version for {game_dir=!r}")
+            exit(1)
 
-        target = VERSIONS_DIR / version
-        if target.is_dir() and not target.is_symlink():
-            shutil.rmtree(target)
-        elif target.is_symlink():
-            target.unlink()
+    target = VERSIONS_DIR / version
+    if target.is_dir() and not target.is_symlink():
+        shutil.rmtree(target)
+    elif target.is_symlink():
+        target.unlink()
 
-        target.absolute().symlink_to(dll_dir.absolute(), target_is_directory=True)
-        versions.append(version)
+    target.absolute().symlink_to(dll_dir.absolute(), target_is_directory=True)
+    print(f'"{target}" -> "{dll_dir}"')
 
-    return versions
+    return version
 
 
 @cli.command(no_args_is_help=True)
 def build_game(
-    game_dirs: list[Path] = typer.Argument(..., exists=True, file_okay=False),
+    game_dir: Path = typer.Argument(..., exists=True, file_okay=False),
+    version: str | None = typer.Option(
+        None, help="Required if version cannot be inferred."
+    ),
+    dll_dir: Path | None = typer.Option(None, exists=True, file_okay=False),
     configuration: CliConfigurationType = CliConfiguration,
 ) -> None:
     """
-    Build .nupkg by game paths.
+    Build .nupkg by game path.
     """
-    for version in add_version(game_dirs):
-        dotnet_build(version, configuration)
+
+    version = add_version(game_dir, version, dll_dir)
+    dotnet_build(version, configuration)
 
 
 @cli.command()
