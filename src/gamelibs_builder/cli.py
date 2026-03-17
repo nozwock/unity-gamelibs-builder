@@ -194,8 +194,7 @@ def build_game(
     Build .nupkg by game path.
     """
 
-    version = add_version(game_dir, version, dll_dir)
-    dotnet_build(version, configuration)
+    dotnet_build(add_version(game_dir, version, dll_dir), configuration)
 
 
 @cli.command()
