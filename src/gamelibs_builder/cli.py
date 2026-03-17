@@ -43,6 +43,7 @@ def disable_github_cli_prompt() -> None:
 
 def dotnet_build(
     configuration: CliConfigurationType,
+    *,
     version: str,
     cwd: Path | None = None,
 ) -> None:
@@ -219,7 +220,7 @@ def project_build_game(
 
     dotnet_build(
         configuration,
-        project_add_version(game_dir, version, dll_dir),
+        version=project_add_version(game_dir, version, dll_dir),
     )
 
 
@@ -237,7 +238,7 @@ def project_build_version(
 
     if versions is None:
         for version in (it for it in versions_dir.iterdir() if it.is_dir()):
-            dotnet_build(version.name, configuration)
+            dotnet_build(configuration, version=version.name)
 
         return
 
@@ -247,7 +248,7 @@ def project_build_version(
             print(f'No such directory: "{version_path}"')
             exit(1)
 
-        dotnet_build(configuration, version)
+        dotnet_build(configuration, version=version)
 
 
 def publish_github_nuget_packages(nupkgs: Iterable[Path]) -> None:
