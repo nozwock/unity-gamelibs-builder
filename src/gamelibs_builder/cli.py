@@ -5,13 +5,14 @@ import shutil
 import subprocess
 import tempfile
 from datetime import datetime
+from fnmatch import fnmatch
 from pathlib import Path
 from sys import exit
 from typing import Annotated, Any, Iterable, Literal, cast
 
 import dotenv
 import typer
-from more_itertools import first
+from more_itertools import first, tail
 
 from gamelibs_builder import data, game_version, utils
 
@@ -304,8 +305,22 @@ def project_add_version(
     elif target.is_symlink():
         target.unlink()
 
-    target.absolute().symlink_to(dll_dir.absolute(), target_is_directory=True)
-    print(f'"{target}" -> "{dll_dir}"')
+    target.mkdir(parents=True)
+
+    managed_dlls = target / "Managed"
+    managed_dlls.absolute().symlink_to(dll_dir.absolute(), target_is_directory=True)
+    print(f'"{managed_dlls}" -> "{dll_dir}"')
+
+    # Include MelonLoader/*.dll in the nuget package as well since they aren't available readily via a nuget index
+    if game_dir.joinpath("MelonLoader").is_dir():
+        print("Symlinking MelonLoader dlls:")
+        loader_dlls = target / "Loader"
+        loader_dlls.mkdir()
+
+        for dll in (game_dir / "MelonLoader").glob("*.dll"):
+            target_dll = loader_dlls / dll.name
+            target_dll.absolute().symlink_to(dll)
+            print(f'"{target_dll}" -> "{dll}"')
 
     return version
 

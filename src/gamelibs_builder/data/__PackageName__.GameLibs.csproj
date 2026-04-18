@@ -39,7 +39,8 @@
   </ItemGroup>
 
   <PropertyGroup>
-      <DllDir>$(VersionsDir)/$(GameVersion)/</DllDir>
+      <DllDir>$(VersionsDir)/$(GameVersion)/Managed/</DllDir>
+      <LoaderDllDir>$(VersionsDir)/$(GameVersion)/Loader/</LoaderDllDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -56,6 +57,8 @@
 
   <ItemGroup>
     <GameFiles Include="$(DllDir)/*.dll" Exclude="@(SystemFiles)" Publicize="true" Strip="true" />
+    <!-- For MelonLoader -->
+    <GameFiles Condition="Exists('$(LoaderDllDir)')" Include="$(LoaderDllDIr)/*.dll" Publicize="true" Strip="true" />
   </ItemGroup>
 
   <ItemGroup>
