@@ -17,7 +17,7 @@
     <PackageReadmeFile>doc/README.md</PackageReadmeFile>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <!-- https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-nuget-registry -->
-    <RepositoryUrl>https://github.com/{{ GithubUsername }}/{{ PackageName }}.GameLibs</RepositoryUrl>
+    <RepositoryUrl>{{ RepositoryUrl }}</RepositoryUrl>
     <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <!--
