@@ -285,7 +285,7 @@ def project_add_version(
                     joindir(game_dir, "MelonLoader", "Il2CppAssemblies"),
                     joindir(game_dir, "MelonLoader", "Managed"),
                     # Game's original managed dlls
-                    first(game_dir.glob("*_Data/Managed")),
+                    first(game_dir.glob("*_Data/Managed"), None),
                 ),
             )
         )
