@@ -11,7 +11,7 @@
     <PackageVersion>1.0.0-{{ GameVersionPrefix }}$(GameVersion)</PackageVersion>
     <Authors>{{ GithubUsername }}</Authors>
     <Description>The game libraries used for modding {{ GameDisplayName }}</Description>
-    <PackageTags>{{ PackageTags }} modding bepinex5</PackageTags>
+    <PackageTags>{{ PackageTags }} modding</PackageTags>
     <IncludeBuildOutput>False</IncludeBuildOutput>
     <NoDefaultExcludes>true</NoDefaultExcludes>
     <PackageReadmeFile>doc/README.md</PackageReadmeFile>
@@ -30,7 +30,7 @@
 
   <ItemGroup>
     <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3" ExcludeAssets="all" GeneratePathProperty="true" />
-    <PackageReference Include="MonoMod.RuntimeDetour.HookGen" Version="22.7.31.1" PrivateAssets="all" GeneratePathProperty="true" />
+    <!-- <PackageReference Include="MonoMod.RuntimeDetour.HookGen" Version="22.7.31.1" PrivateAssets="all" GeneratePathProperty="true" /> -->
   </ItemGroup>
 
   <ItemGroup>
