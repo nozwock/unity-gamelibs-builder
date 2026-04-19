@@ -45,10 +45,11 @@
 
   <PropertyGroup>
     {{ KeepUnityProperty }}
+    {{ SystemFilesToKeepProperty }}
   </PropertyGroup>
 
   <ItemGroup>
-    <SystemFiles Include="$(DllDir)/System*.dll" />
+    <SystemFiles Include="$(DllDir)/System*.dll" Exclude="$(SystemFilesToKeep)" />
     <SystemFiles Include="$(DllDir)/netstandard.dll" />
     <SystemFiles Include="$(DllDir)/mscorlib.dll" />
     <!-- 
