@@ -43,6 +43,10 @@
       <LoaderDllDir>$(VersionsDir)/$(GameVersion)/Loader/</LoaderDllDir>
   </PropertyGroup>
 
+  <PropertyGroup>
+    {{ KeepUnityProperty }}
+  </PropertyGroup>
+
   <ItemGroup>
     <SystemFiles Include="$(DllDir)/System*.dll" />
     <SystemFiles Include="$(DllDir)/netstandard.dll" />
@@ -52,7 +56,7 @@
     Counterintuitively the "exclude" list is stuff which should be included in the bundle (it is excluded from the list of stuff to remove)
     because they are not covered by UnityEngine.Modules
     -->
-    <SystemFiles Include="$(DllDir)/UnityEngine*.dll" Exclude="$(DllDir)/UnityEngine.AMDModule.dll;$(DllDir)/UnityEngine.ARModule.dll;$(DllDir)/UnityEngine.NVIDIAModule.dll;$(DllDir)/UnityEngine.UI.dll" />
+    <SystemFiles Condition="'$(KeepUnity)' != 'true'" Include="$(DllDir)/UnityEngine*.dll" Exclude="$(DllDir)/UnityEngine.AMDModule.dll;$(DllDir)/UnityEngine.ARModule.dll;$(DllDir)/UnityEngine.NVIDIAModule.dll;$(DllDir)/UnityEngine.UI.dll" />
   </ItemGroup>
 
   <ItemGroup>

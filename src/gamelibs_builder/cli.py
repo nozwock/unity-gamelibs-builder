@@ -106,6 +106,9 @@ def build_package(
         str | None, typer.Option(help="Specify RepositoryUrl/RepositoryUrl.")
     ] = None,
     strip_only: Annotated[bool, typer.Option("--strip-only")] = False,
+    keep_unity: Annotated[
+        bool, typer.Option("--keep-unity", help="Keep all Unity* dlls.")
+    ] = False,
 ) -> None:
     """Build GameLibs NuGet package directly with template project placed in a temporary directory."""
 
@@ -126,6 +129,7 @@ def build_package(
             git=False,
             repo=repo,
             strip_only=strip_only,
+            keep_unity=keep_unity,
         )
 
         configuration = "Release"
@@ -192,6 +196,9 @@ def project_init(
         typer.Option(help="Specify RepositoryUrl/RepositoryUrl."),
     ] = None,
     strip_only: Annotated[bool, typer.Option("--strip-only")] = False,
+    keep_unity: Annotated[
+        bool, typer.Option("--keep-unity", help="Keep all Unity* dlls.")
+    ] = False,
 ) -> None:
     """
     Setup a git project for bundler nuget package.
@@ -216,6 +223,10 @@ def project_init(
     if repo is None:
         repo = ""
 
+    keep_unity_property = "<KeepUnity>false</KeepUnity>"
+    if keep_unity:
+        keep_unity_property = "<KeepUnity>true</KeepUnity>"
+
     placeholder_values: dict[str, str] = {
         "GameDisplayName": display_name,
         "GameVersionPrefix": version_prefix,
@@ -226,6 +237,7 @@ def project_init(
         "TargetFramework": framework,
         "RepositoryUrl": repo,
         "StripOnlyAttr": 'PublicizeTarget="None"' if strip_only else "",
+        "KeepUnityProperty": keep_unity_property,
     }
 
     dir.mkdir(parents=True, exist_ok=True)
