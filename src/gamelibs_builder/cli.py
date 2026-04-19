@@ -102,9 +102,9 @@ def build_package(
         str | None, typer.Option(help="Default is git's global user.name")
     ] = None,
     license_year: Annotated[int | None, typer.Option()] = None,
-    no_repo: Annotated[
-        bool, typer.Option("--no-repo", help="Empty RepositoryUrl/RepositoryUrl.")
-    ] = False,
+    repo: Annotated[
+        str | None, typer.Option(help="Specify RepositoryUrl/RepositoryUrl.")
+    ] = None,
 ) -> None:
     """Build GameLibs NuGet package directly with template project placed in a temporary directory."""
 
@@ -123,7 +123,7 @@ def build_package(
             github_username=github_username,
             license_year=license_year,
             git=False,
-            no_repo=no_repo,
+            repo=repo,
         )
 
         configuration = "Release"
@@ -185,9 +185,10 @@ def project_init(
     ] = None,
     license_year: Annotated[int | None, typer.Option()] = None,
     git: Annotated[bool, typer.Option()] = True,
-    no_repo: Annotated[
-        bool, typer.Option("--no-repo", help="Empty RepositoryUrl/RepositoryUrl.")
-    ] = False,
+    repo: Annotated[
+        str | None,
+        typer.Option(help="Specify RepositoryUrl/RepositoryUrl."),
+    ] = None,
 ) -> None:
     """
     Setup a git project for bundler nuget package.
@@ -209,9 +210,8 @@ def project_init(
     if not license_year:
         license_year = datetime.now().year
 
-    repo_url = ""
-    if not no_repo:
-        repo_url = f"https://github.com/{github_username}/{package_name}.GameLibs"
+    if repo is None:
+        repo = ""
 
     placeholder_values: dict[str, str] = {
         "GameDisplayName": display_name,
@@ -221,8 +221,7 @@ def project_init(
         "PackageName": package_name,
         "PackageTags": package_tags_string,
         "TargetFramework": framework,
-        # TODO: Besides manually specifying repo url, the default should be retrieved from gh-cli
-        "RepositoryUrl": repo_url,
+        "RepositoryUrl": repo,
     }
 
     dir.mkdir(parents=True, exist_ok=True)
