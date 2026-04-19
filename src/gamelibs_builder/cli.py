@@ -105,6 +105,7 @@ def build_package(
     repo: Annotated[
         str | None, typer.Option(help="Specify RepositoryUrl/RepositoryUrl.")
     ] = None,
+    strip_only: Annotated[bool, typer.Option("--strip-only")] = False,
 ) -> None:
     """Build GameLibs NuGet package directly with template project placed in a temporary directory."""
 
@@ -124,6 +125,7 @@ def build_package(
             license_year=license_year,
             git=False,
             repo=repo,
+            strip_only=strip_only,
         )
 
         configuration = "Release"
@@ -189,6 +191,7 @@ def project_init(
         str | None,
         typer.Option(help="Specify RepositoryUrl/RepositoryUrl."),
     ] = None,
+    strip_only: Annotated[bool, typer.Option("--strip-only")] = False,
 ) -> None:
     """
     Setup a git project for bundler nuget package.
@@ -222,6 +225,7 @@ def project_init(
         "PackageTags": package_tags_string,
         "TargetFramework": framework,
         "RepositoryUrl": repo,
+        "StripOnlyAttr": 'PublicizeTarget="None"' if strip_only else "",
     }
 
     dir.mkdir(parents=True, exist_ok=True)

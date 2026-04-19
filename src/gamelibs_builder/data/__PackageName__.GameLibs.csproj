@@ -56,9 +56,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <GameFiles Include="$(DllDir)/*.dll" Exclude="@(SystemFiles)" Publicize="true" Strip="true" />
+    <!-- StripOnlyAttr is PublicizeTarget="None" -->
+    <GameFiles Include="$(DllDir)/*.dll" Exclude="@(SystemFiles)" Publicize="true" Strip="true" {{ StripOnlyAttr }} />
     <!-- For MelonLoader -->
-    <GameFiles Condition="Exists('$(LoaderDllDir)')" Include="$(LoaderDllDIr)/*.dll" Publicize="true" Strip="true" />
+    <GameFiles Condition="Exists('$(LoaderDllDir)')" Include="$(LoaderDllDIr)/*.dll" Publicize="true" Strip="true" {{ StripOnlyAttr }} />
   </ItemGroup>
 
   <ItemGroup>
