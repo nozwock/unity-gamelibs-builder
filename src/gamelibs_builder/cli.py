@@ -324,9 +324,9 @@ def project_add_version(
         assert dll_dir is not None and dll_dir.is_dir()
         print(f'Manged DLLs directory to be symlinked: "{dll_dir}"')
 
-    if version is None:
+    if not version:
         version = game_version.get_version(game_dir)
-        if version is None:
+        if not version:
             print(f"Error: Cannot infer version for {game_dir=!r}")
             exit(1)
 
@@ -414,7 +414,7 @@ def publish_github_nuget_packages(
 ) -> None:
     disable_github_cli_prompt()
 
-    if username is None:
+    if not username:
         repo = subprocess.run(
             ["gh", "repo", "view", "--json", "owner,name"],
             text=True,
